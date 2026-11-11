@@ -49,6 +49,15 @@ describe('牌型判定', () => {
     expect(detectCombo(C('3S', '3H', '4C', '5D', '6S'))).toBeNull();
     expect(detectCombo([])).toBeNull();
   });
+
+  it('大小王单出与王炸', () => {
+    expect(detectCombo(C('16J'))?.type).toBe('single');
+    expect(detectCombo(C('17J'))?.type).toBe('single');
+    expect(detectCombo(C('16J', '17J'))?.type).toBe('rocket');
+    // 单大王压单小王
+    expect(canBeat(detectCombo(C('16J'))!, detectCombo(C('17J'))!)).toBe(true);
+    expect(canBeat(detectCombo(C('17J'))!, detectCombo(C('16J'))!)).toBe(false);
+  });
 });
 
 describe('大小比较', () => {
@@ -114,6 +123,13 @@ describe('提示与 AI', () => {
     const combos = enumerateCombos(hand);
     expect(combos.length).toBeGreaterThan(0);
     for (const c of combos) expect(detectCombo(c)).not.toBeNull();
+  });
+
+  it('提示包含单张王', () => {
+    const hand = C('16J', '17J');
+    const beats = findBeats(hand, detectCombo(C('14S'))!);
+    const singles = beats.filter((b) => detectCombo(b)?.type === 'single');
+    expect(singles.length).toBe(2);
   });
 
   it('AI 决策不抛异常', () => {

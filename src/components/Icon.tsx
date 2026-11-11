@@ -13,6 +13,7 @@ export type IconName =
   | 'volumeOff'
   | 'logout'
   | 'chat'
+  | 'chatOff'
   | 'counter'
   | 'coin'
   | 'users'
@@ -78,6 +79,12 @@ const PATHS: Record<IconName, ReactNode> = {
   chat: (
     <>
       <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.6 8.6 0 0 1-3.7-.9L3 21l1.9-5.3a8.4 8.4 0 0 1-.9-3.7 8.4 8.4 0 0 1 8.4-8.5h.6a8.4 8.4 0 0 1 8 8Z" />
+    </>
+  ),
+  chatOff: (
+    <>
+      <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.6 8.6 0 0 1-3.7-.9L3 21l1.9-5.3a8.4 8.4 0 0 1-.9-3.7 8.4 8.4 0 0 1 8.4-8.5h.6a8.4 8.4 0 0 1 8 8Z" />
+      <path d="m4 4 16 16" />
     </>
   ),
   counter: (

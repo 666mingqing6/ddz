@@ -15,13 +15,14 @@ const SETTINGS_KEY = 'ddz.audio';
 interface AudioSettings {
   sfx: boolean;
   bgm: boolean;
+  voice: boolean;
 }
 
 export function audioSettings(): AudioSettings {
   try {
-    return { sfx: true, bgm: true, ...(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Partial<AudioSettings>) };
+    return { sfx: true, bgm: true, voice: true, ...(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Partial<AudioSettings>) };
   } catch {
-    return { sfx: true, bgm: true };
+    return { sfx: true, bgm: true, voice: true };
   }
 }
 

@@ -10,6 +10,16 @@ import { Avatar } from './Avatar';
 import { Icon } from './Icon';
 import { sfx, unlockAudio, audioSettings, setAudioSettings } from '../audio/sfx';
 import { music } from '../audio/music';
+import {
+  announceBid,
+  announceChat,
+  announceLandlord,
+  announcePass,
+  announcePlay,
+  announceResult,
+  stopVoice,
+  unlockVoice,
+} from '../audio/voice';
 import type { GameSession } from '../game/useGame';
 
 interface Props {
@@ -51,6 +61,7 @@ export function Table({ session, user, onLeave }: Props) {
   const [dealAnim, setDealAnim] = useState(0);
   const [vw, setVw] = useState(() => (typeof window === 'undefined' ? 1200 : window.innerWidth));
   const [musicOn, setMusicOn] = useState(() => audioSettings().bgm);
+  const [voiceOn, setVoiceOn] = useState(() => audioSettings().voice);
   const chatSeq = useRef(0);
 
   // 首次手势解锁音频
@@ -58,6 +69,7 @@ export function Table({ session, user, onLeave }: Props) {
     const onFirst = () => {
       unlockAudio();
       music.unlock();
+      unlockVoice();
       window.removeEventListener('pointerdown', onFirst);
     };
     window.addEventListener('pointerdown', onFirst);
@@ -110,6 +122,7 @@ export function Table({ session, user, onLeave }: Props) {
           break;
         case 'bid':
           sfx.bid(ev.score);
+          announceBid(ev.score);
           break;
         case 'play':
           if (ev.combo.type === 'rocket') {
@@ -123,9 +136,11 @@ export function Table({ session, user, onLeave }: Props) {
           } else {
             sfx.play();
           }
+          announcePlay(ev.combo);
           break;
         case 'pass':
           sfx.pass();
+          announcePass();
           break;
         case 'turn':
           if (ev.seat === seat) sfx.turn();
@@ -133,12 +148,19 @@ export function Table({ session, user, onLeave }: Props) {
         case 'chat':
           chatSeq.current += 1;
           setChats((list) => [...list.slice(-3), { id: chatSeq.current, seat: ev.seat, name: ev.name, text: ev.text }]);
+          announceChat(ev.text);
           break;
-        case 'settle':
+        case 'settle': {
+          const delta = ev.result.deltas[seat] ?? 0;
           setResultOpen(true);
-          music.setMode((ev.result.deltas[seat] ?? 0) >= 0 ? 'win' : 'lose', true);
-          if ((ev.result.deltas[seat] ?? 0) >= 0) sfx.win();
+          music.setMode(delta >= 0 ? 'win' : 'lose', true);
+          if (delta >= 0) sfx.win();
           else sfx.lose();
+          announceResult(delta > 0, ev.result.spring);
+          break;
+        }
+        case 'system':
+          if (ev.text.includes('成为地主')) announceLandlord();
           break;
         default:
           break;
@@ -335,7 +357,7 @@ export function Table({ session, user, onLeave }: Props) {
       {/* 底牌 */}
       <div className="bottom-cards">
         <span className="bottom-cards__label">底牌</span>
-        <div className="bottom-cards__row">
+        <div className={`bottom-cards__row ${state.bottom.length > 8 ? 'is-many' : ''}`}>
           {state.variant.bottom > 0 &&
             Array.from({ length: state.variant.bottom }).map((_, i) =>
               state.bottomRevealed && state.bottom[i] ? (
@@ -500,10 +522,6 @@ export function Table({ session, user, onLeave }: Props) {
 
           {(state.phase === 'waiting' || state.phase === 'settled') && (
             <div className="actions__wait">
-              <button className="btn btn--ghost" onClick={() => setChatOpen((v) => !v)}>
-                <Icon name="chat" size={16} />
-                快捷语
-              </button>
               <button className="btn btn--primary" onClick={() => send({ t: 'ready', ready: !me.ready })}>
                 {me.ready ? '取消准备' : '准备'}
               </button>
@@ -515,9 +533,34 @@ export function Table({ session, user, onLeave }: Props) {
         </div>
       </div>
 
+      {/* 快捷语：任何阶段可用 */}
+      <button
+        className={`chat-fab ${chatOpen ? 'is-open' : ''}`}
+        onClick={() => setChatOpen((v) => !v)}
+        title="快捷语"
+        aria-label="快捷语"
+      >
+        <Icon name="chat" size={20} />
+        {chats.length > 0 && <i className="chat-fab__dot" />}
+      </button>
+
       {/* 我的快捷语 */}
       {chatOpen && (
         <div className="chat-pop">
+          <div className="chat-pop__head">
+            <span>快捷语</span>
+            <button
+              className={`chat-pop__voice ${voiceOn ? 'is-on' : ''}`}
+              onClick={() => {
+                const next = setAudioSettings({ voice: !voiceOn });
+                setVoiceOn(next.voice);
+                if (!next.voice) stopVoice();
+              }}
+            >
+              <Icon name={voiceOn ? 'chat' : 'chatOff'} size={13} />
+              {voiceOn ? '语音开' : '语音关'}
+            </button>
+          </div>
           {QUICK_CHATS.map((t) => (
             <button key={t} onClick={() => say(t)}>{t}</button>
           ))}

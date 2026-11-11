@@ -3,6 +3,7 @@ import { api, setSession } from '../api';
 import type { RoomSummary, UserProfile } from '../../shared/types';
 import { audioSettings, setAudioSettings, sfx, startBgm, unlockAudio } from '../audio/sfx';
 import { music } from '../audio/music';
+import { stopVoice, unlockVoice } from '../audio/voice';
 import { LogoMark } from './Logo';
 import { Avatar } from './Avatar';
 import { Icon } from './Icon';
@@ -52,6 +53,7 @@ export function Lobby({ user, onEnter, onLogout, onUserChange }: Props) {
     const onFirst = () => {
       unlockAudio();
       music.unlock();
+      unlockVoice();
       window.removeEventListener('pointerdown', onFirst);
     };
     window.addEventListener('pointerdown', onFirst);
@@ -112,6 +114,17 @@ export function Lobby({ user, onEnter, onLogout, onUserChange }: Props) {
           }}
         >
           <Icon name={audio.bgm ? 'music' : 'musicOff'} size={18} />
+        </button>
+        <button
+          className="hud__btn"
+          title="语音播报"
+          onClick={() => {
+            const next = setAudioSettings({ voice: !audio.voice });
+            setAudio(next);
+            if (!next.voice) stopVoice();
+          }}
+        >
+          <Icon name={audio.voice ? 'chat' : 'chatOff'} size={18} />
         </button>
         <button className="hud__btn" onClick={onLogout} title="退出登录">
           <Icon name="logout" size={18} />

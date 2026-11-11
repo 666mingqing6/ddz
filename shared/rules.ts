@@ -120,13 +120,14 @@ export function detectCombo(cards: Card[]): Combo | null {
   const maxRank = ranks[ranks.length - 1];
   const allCounts = (v: number) => ranks.every((r) => counts.get(r) === v);
 
-  // 王炸：全为王
+  // 单张优先判定：大小王单出也是合法单牌
+  if (n === 1) return { type: 'single', rank: ranks[0], len: 1, size: 1 };
+
+  // 王炸：两张及以上全为王（大小王 / 双小王 / 两副牌四王）
   if (ranks.every((r) => r >= RANK_SMALL_JOKER)) {
     if (n >= 2) return { type: 'rocket', rank: RANK_BIG_JOKER, len: 1, size: n };
     return null;
   }
-
-  if (n === 1) return { type: 'single', rank: ranks[0], len: 1, size: 1 };
 
   if (distinct === 1) {
     const c = counts.get(ranks[0])!;

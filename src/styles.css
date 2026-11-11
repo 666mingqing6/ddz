@@ -476,6 +476,18 @@ input {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
+/* 2 人玩法底牌多达 20 张，缩小展示避免铺满整行 */
+.bottom-cards__row.is-many {
+  gap: 2px;
+  padding: 4px 6px;
+}
+
+.bottom-cards__row.is-many .card {
+  --cw: 24px;
+  --ch: 34px;
+  border-radius: 3px;
+}
+
 /* ---------------------------------------------------------- 座位 */
 .seat {
   position: absolute;
@@ -938,20 +950,98 @@ input {
 }
 
 /* ---------------------------------------------------------- 快捷语弹层 */
+/* 快捷语入口：常驻右侧，任何阶段可用 */
+.chat-fab {
+  position: absolute;
+  right: 14px;
+  top: 54%;
+  transform: translateY(-50%);
+  z-index: 62;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(180deg, rgba(10, 60, 36, 0.95), rgba(4, 30, 18, 0.95));
+  border: 1px solid rgba(255, 215, 106, 0.45);
+  color: var(--gold);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.chat-fab:hover {
+  transform: translateY(-50%) scale(1.06);
+}
+
+.chat-fab.is-open {
+  background: linear-gradient(180deg, #ffe9a8, #e8a52c);
+  color: #5b3a05;
+  border-color: #ffe9a8;
+}
+
+.chat-fab__dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ff5a4d;
+  box-shadow: 0 0 6px rgba(255, 90, 77, 0.8);
+}
+
 .chat-pop {
   position: absolute;
-  right: 16px;
-  bottom: calc(120px + var(--safe-b));
-  z-index: 60;
+  right: 70px;
+  top: 54%;
+  bottom: auto;
+  transform: translateY(-50%);
+  z-index: 61;
   display: grid;
   gap: 6px;
   padding: 10px;
   border-radius: 14px;
-  background: rgba(3, 26, 15, 0.94);
+  background: rgba(3, 26, 15, 0.95);
   border: 1px solid rgba(255, 215, 106, 0.3);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
-  max-width: 240px;
-  animation: bubbleIn 0.18s ease-out both;
+  width: 232px;
+  animation: popIn 0.18s ease-out both;
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: translateY(-50%) scale(0.94); }
+  to { opacity: 1; transform: translateY(-50%) scale(1); }
+}
+
+.chat-pop__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px 7px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.chat-pop__head > span {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--gold);
+}
+
+.chat-pop__voice {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  font-size: 10px;
+  color: #a9c9b1;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.chat-pop__voice.is-on {
+  color: var(--gold);
+  border-color: rgba(255, 215, 106, 0.45);
+  background: rgba(255, 215, 106, 0.12);
 }
 
 .chat-pop button {
