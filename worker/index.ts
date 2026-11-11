@@ -237,6 +237,14 @@ async function handleApi(req: Request, env: Env, url: URL, _ctx: ExecutionContex
     return json({ ok: true, code, settings });
   }
 
+  // ---------------------------------------------------------- 房间实时状态（诊断用）
+  const stateMatch = path.match(/^\/api\/rooms\/([A-Z0-9]{4,8})\/state$/);
+  if (stateMatch && req.method === 'GET') {
+    const stub = env.ROOMS.get(env.ROOMS.idFromName(stateMatch[1]));
+    const res = await stub.fetch(new Request('https://room/info'));
+    return json({ ok: true, state: await res.json() });
+  }
+
   // ---------------------------------------------------------- 房间信息
   const roomMatch = path.match(/^\/api\/rooms\/([A-Z0-9]{4,8})$/);
   if (roomMatch && req.method === 'GET') {

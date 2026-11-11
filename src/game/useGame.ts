@@ -29,27 +29,55 @@ export function useGame(room: string, avatar: string, onClosed?: (reason: string
   const [clockOffset, setClockOffset] = useState(0);
 
   const wsRef = useRef<WebSocket | null>(null);
-  const retryRef = useRef(0);
-  const closedRef = useRef(false);
   const queueRef = useRef<ClientMessage[]>([]);
-  const timerRef = useRef<number | null>(null);
+  const onClosedRef = useRef(onClosed);
+  onClosedRef.current = onClosed;
 
-  const connect = useCallback(() => {
-    if (!room) return;
-    try {
-      const ws = new WebSocket(wsUrl(room, avatar));
-      wsRef.current = ws;
+  /**
+   * 单一 effect 管理连接生命周期。
+   * 关键：卸载/换房时置 disposed=true，旧连接的 onclose 不再触发重连，
+   * 否则离开房间后会被旧闭包重新连回去（房间永远不空）。
+   */
+  useEffect(() => {
+    if (!room) {
+      setState(null);
+      setHand([]);
+      setSeat(-1);
+      setConnected(false);
+      return;
+    }
 
-      ws.onopen = () => {
+    let disposed = false;
+    let retry = 0;
+    let failures = 0;
+    let timer: number | null = null;
+    let ping: number | null = null;
+    let ws: WebSocket | null = null;
+
+    const open = () => {
+      if (disposed) return;
+      try {
+        ws = new WebSocket(wsUrl(room, avatar));
+      } catch {
+        timer = window.setTimeout(open, 2000);
+        return;
+      }
+      const socket = ws;
+      wsRef.current = socket;
+
+      socket.onopen = () => {
+        if (disposed) return;
+        retry = 0;
+        failures = 0;
         setConnected(true);
-        retryRef.current = 0;
         while (queueRef.current.length) {
           const msg = queueRef.current.shift()!;
-          ws.send(JSON.stringify(msg));
+          socket.send(JSON.stringify(msg));
         }
       };
 
-      ws.onmessage = (ev) => {
+      socket.onmessage = (ev) => {
+        if (disposed) return;
         let msg: ServerMessage;
         try {
           msg = JSON.parse(ev.data as string) as ServerMessage;
@@ -70,41 +98,53 @@ export function useGame(room: string, avatar: string, onClosed?: (reason: string
         } else if (msg.t === 'hint') {
           setHintCards(msg.cards);
         } else if (msg.t === 'closed') {
-          closedRef.current = true;
-          onClosed?.(msg.reason);
+          disposed = true;
+          setConnected(false);
+          onClosedRef.current?.(msg.reason);
         }
       };
 
-      ws.onclose = () => {
+      socket.onclose = () => {
+        if (disposed) return;
         setConnected(false);
-        if (closedRef.current) return;
-        retryRef.current = Math.min(retryRef.current + 1, 6);
-        const delay = Math.min(500 * 2 ** retryRef.current, 8000);
-        timerRef.current = window.setTimeout(connect, delay);
+        failures += 1;
+        // 房间可能已被回收：连续失败到阈值就停止重连，避免无限轮询
+        if (failures > 6) {
+          disposed = true;
+          onClosedRef.current?.('房间已关闭或已过期');
+          return;
+        }
+        retry = Math.min(retry + 1, 6);
+        timer = window.setTimeout(open, Math.min(500 * 2 ** retry, 8000));
       };
 
-      ws.onerror = () => {
-        ws.close();
+      socket.onerror = () => {
+        try {
+          socket.close();
+        } catch {
+          /* ignore */
+        }
       };
-    } catch {
-      timerRef.current = window.setTimeout(connect, 2000);
-    }
-  }, [room, avatar, onClosed]);
+    };
 
-  useEffect(() => {
-    closedRef.current = false;
-    connect();
-    const ping = window.setInterval(() => {
-      const ws = wsRef.current;
+    open();
+    ping = window.setInterval(() => {
       if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'ping' }));
     }, 25000);
+
     return () => {
-      window.clearInterval(ping);
-      if (timerRef.current) window.clearTimeout(timerRef.current);
-      wsRef.current?.close();
+      disposed = true;
+      if (timer) window.clearTimeout(timer);
+      if (ping) window.clearInterval(ping);
+      try {
+        ws?.close();
+      } catch {
+        /* ignore */
+      }
       wsRef.current = null;
+      setConnected(false);
     };
-  }, [connect]);
+  }, [room, avatar]);
 
   const send = useCallback((msg: ClientMessage) => {
     const ws = wsRef.current;

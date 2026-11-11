@@ -61,6 +61,8 @@ interface RoomData {
   bidCount: number;
   highestBid: number;
   highestBidSeat: number | null;
+  /** 房间开始「无人」的时间戳，用于空房回收 */
+  emptySince: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -75,6 +77,10 @@ interface Attachment {
 
 const BOT_NAMES = ['小美', '阿福', '老K', '豆豆', '阿呆', '花姐', '大龙', '小七'];
 const BOT_AVATARS = ['tiger', 'panda', 'fox', 'dog', 'pig', 'frog', 'rabbit', 'bear'];
+
+/** 空房回收：无人 5s、全离线 120s，可用环境变量覆盖便于测试 */
+const EMPTY_GRACE_MS = 5_000;
+const EMPTY_TTL_MS = 120_000;
 
 function newSeat(): SeatData {
   return {
@@ -128,6 +134,18 @@ export class GameRoom {
     return run;
   }
 
+  /** 空房宽限期，可由 EMPTY_GRACE_SECONDS 覆盖（便于测试） */
+  private get emptyGraceMs(): number {
+    const v = Number(this.env.EMPTY_GRACE_SECONDS ?? '');
+    return Number.isFinite(v) && v > 0 ? v * 1000 : EMPTY_GRACE_MS;
+  }
+
+  /** 全离线回收等待，可由 EMPTY_TTL_SECONDS 覆盖（便于测试） */
+  private get emptyTtlMs(): number {
+    const v = Number(this.env.EMPTY_TTL_SECONDS ?? '');
+    return Number.isFinite(v) && v > 0 ? v * 1000 : EMPTY_TTL_MS;
+  }
+
   private async persist(): Promise<void> {
     if (!this.room) return;
     this.room.updatedAt = Date.now();
@@ -172,15 +190,38 @@ export class GameRoom {
             this.room.hostSeat = 0;
           }
           this.pushLog('房间已创建，等待玩家加入');
+          this.markPresence();
           await this.persist();
           await this.syncLobby();
+          // 立即布置空房回收定时器：创建后长时间无人进入会被清理
+          await this.schedule();
         }
         return Response.json({ ok: true, code: this.room.code });
       });
     }
     if (url.pathname === '/info') {
       await this.load();
-      return Response.json({ code: this.room?.code ?? '', phase: this.room?.phase ?? 'waiting' });
+      const r = this.room;
+      if (!r) return Response.json({ exists: false });
+      return Response.json({
+        exists: true,
+        code: r.code,
+        phase: r.phase,
+        turn: r.turn,
+        round: r.round,
+        emptySince: r.emptySince,
+        now: Date.now(),
+        seats: r.seats.map((s, i) => ({
+          seat: i,
+          userId: s.userId,
+          bot: s.isBot,
+          online: s.online,
+          ready: s.ready,
+          cards: s.hand.length,
+        })),
+        humans: this.humanSeats().length,
+        onlineHumans: this.onlineHumans().length,
+      });
     }
     return new Response('not found', { status: 404 });
   }
@@ -196,7 +237,12 @@ export class GameRoom {
     const avatar = clean(safeDecode(request.headers.get('x-user-avatar'), 'panda'), 12);
     if (!uid) return new Response('unauthorized', { status: 401 });
 
+    // 房间必须已由 /init 创建；空房被回收后不再复活
     if (!this.room) {
+      const exists = await this.env.DB.prepare('SELECT code FROM rooms WHERE code = ?')
+        .bind(request.headers.get('x-room-code') ?? url.searchParams.get('room') ?? '')
+        .first();
+      if (!exists) return new Response('room not found', { status: 404 });
       const players = Number(url.searchParams.get('players') ?? 3);
       const base = Number(url.searchParams.get('base') ?? 10);
       this.room = this.createRoom(url.searchParams.get('room') ?? 'ROOM', {
@@ -252,6 +298,7 @@ export class GameRoom {
     if (!spectator && seat >= 0) {
       events.push({ t: 'system', text: `${name} 进入了房间` });
     }
+    this.markPresence();
     await this.persist();
     await this.syncLobby();
     this.broadcast(events);
@@ -287,6 +334,7 @@ export class GameRoom {
       bidCount: 0,
       highestBid: 0,
       highestBidSeat: null,
+      emptySince: Date.now(),
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -296,6 +344,86 @@ export class GameRoom {
     if (!this.room) return;
     this.room.log.push(text);
     if (this.room.log.length > 60) this.room.log.splice(0, this.room.log.length - 60);
+  }
+
+  /** 座位上的真人（不含机器人） */
+  private humanSeats(): SeatData[] {
+    if (!this.room) return [];
+    return this.room.seats.filter((s) => !!s.userId && !s.isBot);
+  }
+
+  private onlineHumans(): SeatData[] {
+    return this.humanSeats().filter((s) => s.online);
+  }
+
+  /** 每次有人进出后刷新「无人」计时 */
+  private markPresence(): void {
+    if (!this.room) return;
+    if (this.onlineHumans().length > 0) this.room.emptySince = 0;
+    else if (!this.room.emptySince) this.room.emptySince = Date.now();
+  }
+
+  /** 销毁房间：先删 D1 列表（用户可见），再清 DO 存储，每一步独立兜错 */
+  private async destroyRoom(): Promise<void> {
+    const code = this.room?.code;
+    this.room = null;
+    if (code) {
+      try {
+        await this.env.DB.prepare('DELETE FROM rooms WHERE code = ?').bind(code).run();
+      } catch {
+        /* D1 删除失败不影响存储清理 */
+      }
+    }
+    for (const ws of this.state.getWebSockets()) {
+      try {
+        ws.send(JSON.stringify({ t: 'closed', reason: '房间已关闭' } satisfies ServerMessage));
+        ws.close(4003, 'room closed');
+      } catch {
+        /* ignore */
+      }
+    }
+    try {
+      await this.state.storage.deleteAlarm();
+    } catch {
+      /* ignore */
+    }
+    try {
+      await this.state.storage.deleteAll();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /**
+   * 空闲回收：无人立即计时，全离线进入 TTL 计时。
+   * @returns true 表示房间已被销毁
+   */
+  private async maybeDestroyIdle(): Promise<boolean> {
+    const r = this.room;
+    if (!r) return true;
+    const humans = this.humanSeats();
+    const online = this.onlineHumans();
+
+    if (online.length > 0) {
+      if (r.emptySince) {
+        r.emptySince = 0;
+        await this.persist();
+      }
+      return false;
+    }
+
+    if (!r.emptySince) {
+      r.emptySince = Date.now();
+      await this.persist();
+      return false;
+    }
+
+    const limit = humans.length === 0 ? this.emptyGraceMs : this.emptyTtlMs;
+    if (Date.now() >= r.emptySince + limit) {
+      await this.destroyRoom();
+      return true;
+    }
+    return false;
   }
 
   private async syncLobby(): Promise<void> {
@@ -525,6 +653,7 @@ export class GameRoom {
         seat.auto = true;
         this.pushLog(`${seat.name} 掉线，进入托管`);
       }
+      this.markPresence();
       this.broadcast();
       await this.persist();
       await this.syncLobby();
@@ -541,7 +670,17 @@ export class GameRoom {
       await this.load();
       if (!this.room) return;
       const r = this.room;
-      if (r.phase !== 'bidding' && r.phase !== 'playing') return;
+
+      // 非对局阶段：只负责空房回收
+      if (r.phase !== 'bidding' && r.phase !== 'playing') {
+        if (await this.maybeDestroyIdle()) return;
+        await this.schedule();
+        return;
+      }
+
+      // 对局中但全员离线过久：直接回收，避免空转
+      if (await this.maybeDestroyIdle()) return;
+
       if (Date.now() < r.deadline - 100) {
         await this.schedule();
         return;
@@ -572,16 +711,33 @@ export class GameRoom {
   private async schedule(): Promise<void> {
     const r = this.room;
     if (!r) return;
-    if (r.phase !== 'bidding' && r.phase !== 'playing') {
-      r.deadline = 0;
-      await this.state.storage.deleteAlarm();
+    if (r.phase === 'bidding' || r.phase === 'playing') {
+      const seat = r.seats[r.turn];
+      const quick = !seat || seat.isBot || seat.auto || !seat.online;
+      const delay = quick ? 1100 : r.settings.turnSeconds * 1000;
+      r.deadline = Date.now() + delay;
+      await this.state.storage.setAlarm(Date.now() + delay + 120);
       return;
     }
-    const seat = r.seats[r.turn];
-    const quick = !seat || seat.isBot || seat.auto || !seat.online;
-    const delay = quick ? 1100 : r.settings.turnSeconds * 1000;
-    r.deadline = Date.now() + delay;
-    await this.state.storage.setAlarm(Date.now() + delay + 120);
+
+    r.deadline = 0;
+    const humans = this.humanSeats();
+    if (humans.length === 0) {
+      // 空房：5 秒后回收（留出换房的瞬间）
+      const since = r.emptySince || Date.now();
+      r.emptySince = since;
+      await this.state.storage.setAlarm(since + this.emptyGraceMs);
+      return;
+    }
+    if (this.onlineHumans().length === 0) {
+      // 有人但全离线：等待重连
+      const since = r.emptySince || Date.now();
+      r.emptySince = since;
+      await this.state.storage.setAlarm(since + this.emptyTtlMs);
+      return;
+    }
+    r.emptySince = 0;
+    await this.state.storage.deleteAlarm();
   }
 
   private async maybeAutoAct(): Promise<void> {
@@ -803,13 +959,41 @@ export class GameRoom {
     }
   }
 
+  /** 异常兜底：跳过该玩家，保证回合继续推进 */
+  private async skipTurn(seat: number): Promise<void> {
+    const r = this.room!;
+    const s = r.seats[seat];
+    if (s) s.passed = true;
+    r.passCount += 1;
+    const active = r.seats.filter((x) => x.hand.length > 0).length;
+    if (r.passCount >= Math.max(1, active - 1)) {
+      const lead = r.lastPlay?.seat ?? (seat + 1) % r.seats.length;
+      r.lastPlay = null;
+      r.passCount = 0;
+      r.seats.forEach((p) => (p.passed = false));
+      r.turn = lead;
+    } else {
+      r.turn = (seat + 1) % r.seats.length;
+    }
+    this.broadcast();
+  }
+
   private async applyPlay(seat: number, cards: Card[]): Promise<void> {
     const r = this.room!;
     const s = r.seats[seat];
     const taken = takeCards(s.hand, cards.map((c) => c.id));
-    if (!taken) return;
+    if (!taken) {
+      // 兜底：数据异常时不能让回合卡死，直接跳过该玩家
+      this.pushLog(`${s.name} 出牌异常，自动跳过`);
+      await this.skipTurn(seat);
+      return;
+    }
     const combo = detectCombo(taken.picked);
-    if (!combo) return;
+    if (!combo) {
+      this.pushLog(`${s.name} 牌型异常，自动跳过`);
+      await this.skipTurn(seat);
+      return;
+    }
     s.hand = taken.rest;
     s.plays += 1;
     s.passed = false;
@@ -1039,6 +1223,7 @@ export class GameRoom {
       }
     }
     this.broadcast([{ t: 'system', text: '一名玩家被移出房间' }]);
+    this.markPresence();
     await this.syncLobby();
   }
 
@@ -1051,6 +1236,7 @@ export class GameRoom {
       s.auto = true;
       s.online = false;
       this.pushLog(`${s.name} 离开，由系统托管`);
+      this.markPresence();
       this.broadcast();
       return;
     }
@@ -1071,6 +1257,7 @@ export class GameRoom {
       }
     }
     this.broadcast([{ t: 'system', text: '一名玩家离开了房间' }]);
+    this.markPresence();
     await this.syncLobby();
   }
 }

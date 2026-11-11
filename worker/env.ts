@@ -5,6 +5,10 @@ export interface Env {
   JWT_SECRET: string;
   ENVIRONMENT?: string;
   ROOM_TTL_SECONDS?: string;
+  /** 空房回收宽限（秒），默认 5 */
+  EMPTY_GRACE_SECONDS?: string;
+  /** 全离线回收等待（秒），默认 120 */
+  EMPTY_TTL_SECONDS?: string;
 }
 
 export interface UserRow {

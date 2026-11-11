@@ -56,7 +56,17 @@ export async function removeRoom(env: Env, code: string): Promise<void> {
 }
 
 export async function listRooms(env: Env): Promise<RoomSummary[]> {
-  const cutoff = Date.now() - 6 * 60 * 60 * 1000;
+  const now = Date.now();
+  const cutoff = now - 6 * 60 * 60 * 1000;
+  // 兜底清理：过期房间，以及创建后一直没人进入的空房
+  try {
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM rooms WHERE updated_at < ?').bind(cutoff),
+      env.DB.prepare('DELETE FROM rooms WHERE players = 0 AND updated_at < ?').bind(now - 5 * 60 * 1000),
+    ]);
+  } catch {
+    // 清理失败不影响列表读取
+  }
   const { results } = await env.DB.prepare(
     'SELECT code, host_name, players, capacity, status, base_score, updated_at FROM rooms WHERE updated_at > ? ORDER BY updated_at DESC LIMIT 40',
   )
