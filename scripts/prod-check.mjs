@@ -38,7 +38,7 @@ const auth = await page.evaluate(async (name) => {
   const r = await fetch('/api/auth/register', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ username: name, password: 'test123456', nickname: '线上验收', avatar: '🦊' }),
+    body: JSON.stringify({ username: name, password: 'test123456', nickname: '线上验收', avatar: 'fox' }),
   });
   return r.json();
 }, `prod${stamp}`);

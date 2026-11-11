@@ -6,6 +6,8 @@ import { findBeats } from '../../shared/hints';
 import type { GameEvent, TableView, UserProfile } from '../../shared/types';
 import { QUICK_CHATS } from '../../shared/types';
 import { CardView } from './Card';
+import { Avatar } from './Avatar';
+import { Icon } from './Icon';
 import { sfx, unlockAudio, audioSettings, setAudioSettings } from '../audio/sfx';
 import { music } from '../audio/music';
 import type { GameSession } from '../game/useGame';
@@ -257,9 +259,9 @@ export function Table({ session, user, onLeave }: Props) {
     return (
       <div className="loading-screen">
         <div className="loading-cards">
-          <span>🂡</span>
-          <span>🂢</span>
-          <span>🂣</span>
+          <CardView faceDown small style={{ transform: 'rotate(-12deg) translateX(8px)' }} />
+          <CardView faceDown small style={{ transform: 'translateY(-6px)' }} />
+          <CardView faceDown small style={{ transform: 'rotate(12deg) translateX(-8px)' }} />
         </div>
         <p>{connected ? '正在同步牌桌…' : '正在连接服务器…'}</p>
       </div>
@@ -290,7 +292,7 @@ export function Table({ session, user, onLeave }: Props) {
       {/* 顶部信息条 */}
       <header className="hud">
         <button className="hud__btn" onClick={onLeave} title="退出房间">
-          ←
+          <Icon name="back" size={18} />
         </button>
         <div className="hud__room" title="点击复制房间号" onClick={() => {
           void navigator.clipboard?.writeText(state.roomCode);
@@ -322,10 +324,10 @@ export function Table({ session, user, onLeave }: Props) {
             music.setEnabled(next.bgm);
           }}
         >
-          🎵
+          <Icon name={musicOn ? 'music' : 'musicOff'} size={18} />
         </button>
         <button className={`hud__btn ${showCounter ? 'is-on' : ''}`} onClick={() => setShowCounter((v) => !v)} title="记牌器">
-          🧮
+          <Icon name="counter" size={18} />
         </button>
         <div className={`hud__conn ${connected ? 'is-on' : ''}`} title={connected ? '已连接' : '重连中'} />
       </header>
@@ -353,7 +355,13 @@ export function Table({ session, user, onLeave }: Props) {
         return (
           <div key={i} className={`seat seat--${pos} ${active ? 'is-turn' : ''} ${p.role === 'landlord' ? 'is-landlord' : ''} ${!p.online ? 'is-offline' : ''}`}>
             <div className="seat__avatar">
-              <span className="seat__emoji">{p.avatar}</span>
+              {p.seatState === 'empty' ? (
+                <span className="seat__empty">
+                  <Icon name="users" size={26} />
+                </span>
+              ) : (
+                <Avatar id={p.avatar} size={46} />
+              )}
               {p.role && <span className={`seat__role seat__role--${p.role}`}>{p.role === 'landlord' ? '地主' : '农民'}</span>}
               {p.auto && <span className="seat__auto">托管</span>}
               {active && <span className="seat__ring" style={{ ['--pct' as string]: `${timerPct}%` }} />}
@@ -434,10 +442,13 @@ export function Table({ session, user, onLeave }: Props) {
       {/* 我的座位 */}
       <div className={`me ${state.turn === seat && state.phase === 'playing' ? 'is-turn' : ''}`}>
         <div className="me__avatar">
-          <span className="me__emoji">{me.avatar}</span>
+          <Avatar id={me.avatar} size={34} />
           {me.role && <span className={`seat__role seat__role--${me.role}`}>{me.role === 'landlord' ? '地主' : '农民'}</span>}
           <span className="me__name">{me.name}</span>
-          <span className="me__coins">🪙 {user.coins}</span>
+          <span className="me__coins">
+            <Icon name="coin" size={12} />
+            {user.coins}
+          </span>
         </div>
 
         <div className={`hand ${dealAnim ? 'is-dealt' : ''}`} key={`hand-${state.round}-${dealAnim}`} style={{ ['--cw' as string]: `${cardW}px`, ['--ch' as string]: `${cardH}px` }}>
@@ -489,7 +500,10 @@ export function Table({ session, user, onLeave }: Props) {
 
           {(state.phase === 'waiting' || state.phase === 'settled') && (
             <div className="actions__wait">
-              <button className="btn btn--ghost" onClick={() => setChatOpen((v) => !v)}>💬 快捷语</button>
+              <button className="btn btn--ghost" onClick={() => setChatOpen((v) => !v)}>
+                <Icon name="chat" size={16} />
+                快捷语
+              </button>
               <button className="btn btn--primary" onClick={() => send({ t: 'ready', ready: !me.ready })}>
                 {me.ready ? '取消准备' : '准备'}
               </button>
@@ -534,7 +548,10 @@ export function Table({ session, user, onLeave }: Props) {
             <div className="result__table">
               {state.result.deltas.map((d, i) => (
                 <div key={i} className="result__row">
-                  <span>{state.players[i]?.avatar} {state.players[i]?.name}</span>
+                  <span className="result__who">
+                    <Avatar id={state.players[i]?.avatar} size={20} />
+                    {state.players[i]?.name}
+                  </span>
                   <b className={d >= 0 ? 'up' : 'down'}>{d > 0 ? `+${d}` : d}</b>
                 </div>
               ))}

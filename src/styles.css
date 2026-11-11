@@ -53,6 +53,18 @@ input {
   outline: none;
 }
 
+/* 统一图标与头像 */
+.icon {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.avatar-svg {
+  display: block;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
 /* ---------------------------------------------------------- 通用按钮 */
 .btn {
   position: relative;
@@ -476,9 +488,9 @@ input {
   transition: transform 0.2s ease;
 }
 
-.seat--left { left: 3%; top: 26%; }
-.seat--right { right: 3%; top: 26%; }
-.seat--top { left: 50%; top: 15%; transform: translateX(-50%); }
+.seat--left { left: 3%; top: 31%; }
+.seat--right { right: 3%; top: 31%; }
+.seat--top { left: 50%; top: 17%; transform: translateX(-50%); }
 
 .seat__avatar {
   position: relative;
@@ -490,11 +502,21 @@ input {
   background: radial-gradient(circle at 35% 30%, #2a6b48, #0b3520);
   border: 2px solid rgba(255, 215, 106, 0.55);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45), inset 0 0 12px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
 }
 
-.seat__emoji {
-  font-size: 34px;
-  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4));
+.seat__avatar .avatar-svg {
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
+}
+
+.seat__empty {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  color: #7fa38a;
+  border: 1px dashed rgba(255, 255, 255, 0.22);
 }
 
 .seat.is-turn .seat__avatar {
@@ -514,7 +536,7 @@ input {
 
 .seat__role {
   position: absolute;
-  bottom: -8px;
+  bottom: -9px;
   left: 50%;
   transform: translateX(-50%);
   padding: 1px 8px;
@@ -523,6 +545,8 @@ input {
   font-weight: 800;
   white-space: nowrap;
   letter-spacing: 1px;
+  z-index: 3;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
 }
 
 .seat__role--landlord {
@@ -553,6 +577,7 @@ input {
   flex-direction: column;
   align-items: center;
   gap: 1px;
+  margin-top: 10px;
   padding: 3px 10px;
   border-radius: 10px;
   background: rgba(2, 24, 13, 0.55);
@@ -778,14 +803,9 @@ input {
   box-shadow: 0 0 18px rgba(255, 215, 106, 0.35);
 }
 
-.me__emoji {
-  font-size: 26px;
-  width: 40px;
-  height: 40px;
-  display: grid;
-  place-items: center;
+.me__avatar .avatar-svg {
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #2a6b48, #0b3520);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 .me__name {
@@ -794,6 +814,9 @@ input {
 }
 
 .me__coins {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   font-size: 11px;
   color: var(--gold);
 }
@@ -884,8 +907,9 @@ input {
 .counter__cell {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 2px 4px;
+  justify-content: space-between;
+  gap: 5px;
+  padding: 2px 5px;
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.06);
   font-size: 11px;
@@ -902,13 +926,15 @@ input {
 
 .counter__rank {
   color: #cfe3d3;
-  width: 12px;
-  text-align: center;
+  min-width: 13px;
+  text-align: left;
 }
 
 .counter__num {
   color: var(--gold);
   font-weight: 700;
+  min-width: 9px;
+  text-align: right;
 }
 
 /* ---------------------------------------------------------- 快捷语弹层 */
@@ -1081,8 +1107,19 @@ input {
 .result__row {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   font-size: 13px;
   color: #d6e7d8;
+}
+
+.result__who {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.result__who .avatar-svg {
+  border-radius: 50%;
 }
 
 .result__btns {
@@ -1107,16 +1144,17 @@ input {
 
 .loading-cards {
   display: flex;
-  gap: 8px;
-  font-size: 42px;
+  gap: 4px;
+  align-items: flex-end;
 }
 
-.loading-cards span {
+.loading-cards .card {
   animation: bob 1.2s ease-in-out infinite;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
 }
 
-.loading-cards span:nth-child(2) { animation-delay: 0.15s; }
-.loading-cards span:nth-child(3) { animation-delay: 0.3s; }
+.loading-cards .card:nth-child(2) { animation-delay: 0.15s; }
+.loading-cards .card:nth-child(3) { animation-delay: 0.3s; }
 
 @keyframes bob {
   0%, 100% { transform: translateY(0) rotate(-4deg); }
@@ -1507,7 +1545,7 @@ input {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 30px;
+  overflow: hidden;
   background: radial-gradient(circle at 35% 30%, #2a6b48, #0b3520);
   border: 2px solid rgba(255, 215, 106, 0.6);
 }
@@ -1808,8 +1846,14 @@ input {
     height: 54px;
   }
 
-  .seat__emoji {
-    font-size: 27px;
+  .seat__avatar .avatar-svg {
+    width: 38px;
+    height: 38px;
+  }
+
+  .seat__empty {
+    width: 38px;
+    height: 38px;
   }
 
   .bottom-cards {
@@ -1831,10 +1875,9 @@ input {
     padding: 3px 10px 3px 3px;
   }
 
-  .me__emoji {
-    width: 32px;
-    height: 32px;
-    font-size: 20px;
+  .me__avatar .avatar-svg {
+    width: 28px;
+    height: 28px;
   }
 
   .actions .btn {

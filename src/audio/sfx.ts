@@ -32,8 +32,10 @@ export function setAudioSettings(patch: Partial<AudioSettings>): AudioSettings {
     if (sfxGain) sfxGain.gain.value = next.sfx ? 0.9 : 0;
     if (bgmGain) bgmGain.gain.value = next.bgm ? 0.28 : 0;
   }
-  if (next.bgm) startBgm();
-  else stopBgm();
+  // 合成 BGM 只作为 Meting 配乐失败时的降级方案。
+  // 用户切换开关时一律先停掉合成音乐，由 music 管理器决定播放来源，
+  // 避免「真实配乐 + 合成音乐」同时发声。
+  stopBgm();
   return next;
 }
 

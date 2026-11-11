@@ -4,6 +4,8 @@ import type { RoomSummary, UserProfile } from '../../shared/types';
 import { audioSettings, setAudioSettings, sfx, startBgm, unlockAudio } from '../audio/sfx';
 import { music } from '../audio/music';
 import { LogoMark } from './Logo';
+import { Avatar } from './Avatar';
+import { Icon } from './Icon';
 
 interface Props {
   user: UserProfile;
@@ -98,7 +100,7 @@ export function Lobby({ user, onEnter, onLogout, onUserChange }: Props) {
             sfx.click();
           }}
         >
-          {audio.sfx ? '🔊' : '🔇'}
+          <Icon name={audio.sfx ? 'volume' : 'volumeOff'} size={18} />
         </button>
         <button
           className="hud__btn"
@@ -109,22 +111,24 @@ export function Lobby({ user, onEnter, onLogout, onUserChange }: Props) {
             music.setEnabled(next.bgm);
           }}
         >
-          {audio.bgm ? '🎵' : '🎶'}
+          <Icon name={audio.bgm ? 'music' : 'musicOff'} size={18} />
         </button>
         <button className="hud__btn" onClick={onLogout} title="退出登录">
-          ⎋
+          <Icon name="logout" size={18} />
         </button>
       </header>
 
       <div className="lobby__body">
         <section className="profile-card">
-          <div className="profile-card__avatar">{user.avatar}</div>
+          <div className="profile-card__avatar">
+            <Avatar id={user.avatar} size={54} />
+          </div>
           <div className="profile-card__info">
             <h2>{user.nickname}</h2>
             <p className="profile-card__id">@{user.username || '游客'}</p>
           </div>
           <div className="profile-card__coins">
-            <span>🪙</span>
+            <Icon name="coin" size={16} />
             <b>{user.coins.toLocaleString()}</b>
           </div>
           <div className="profile-card__stats">

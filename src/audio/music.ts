@@ -131,9 +131,11 @@ class MusicPlayer {
     if (!el) return;
     if (!on) {
       this.fadeTo(0, 300);
-    } else if (this.mode !== 'off' && this.unlocked) {
-      this.playCurrent();
+      return;
     }
+    // 重新开启时允许重试（此前可能因网络失败降级过）
+    this.failed = false;
+    if (this.mode !== 'off' && this.unlocked) this.playCurrent();
   }
 
   setMode(mode: MusicMode, force = false): void {

@@ -3,8 +3,9 @@ import { api, setSession } from '../api';
 import type { UserProfile } from '../../shared/types';
 import { sfx, unlockAudio } from '../audio/sfx';
 import { LogoMark } from './Logo';
+import { Avatar, AVATAR_IDS } from './Avatar';
 
-const AVATARS = ['🐯', '🐼', '🦊', '🐵', '🐶', '🐷', '🐸', '🐰', '🐨', '🐻', '🦁', '🐮'];
+const AVATARS = AVATAR_IDS;
 
 interface Props {
   onLogin: (user: UserProfile) => void;
@@ -18,7 +19,7 @@ export function Auth({ onLogin, initialCode }: Props) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [nickname, setNickname] = useState('');
-  const [avatar, setAvatar] = useState(AVATARS[0]);
+  const [avatar, setAvatar] = useState<string>(AVATARS[0]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -105,8 +106,8 @@ export function Auth({ onLogin, initialCode }: Props) {
                 <span>头像</span>
                 <div className="avatar-picker__list">
                   {AVATARS.map((a) => (
-                    <button key={a} className={a === avatar ? 'is-active' : ''} onClick={() => setAvatar(a)}>
-                      {a}
+                    <button key={a} className={a === avatar ? 'is-active' : ''} onClick={() => setAvatar(a)} aria-label={a}>
+                      <Avatar id={a} size={30} />
                     </button>
                   ))}
                 </div>

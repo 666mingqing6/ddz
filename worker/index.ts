@@ -54,7 +54,7 @@ function profile(row: {
   };
 }
 
-const AVATARS = ['🐯', '🐼', '🦊', '🐵', '🐶', '🐷', '🐸', '🐰', '🐨', '🐻', '🦁', '🐮'];
+const AVATARS = ['tiger', 'panda', 'fox', 'dog', 'pig', 'frog', 'rabbit', 'bear'];
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 function roomCode(): string {
@@ -102,7 +102,7 @@ export default {
       const headers = new Headers(request.headers);
       headers.set('x-user-id', payload.uid);
       headers.set('x-user-name', encodeURIComponent(payload.name));
-      headers.set('x-user-avatar', encodeURIComponent(url.searchParams.get('avatar') ?? '🐯'));
+      headers.set('x-user-avatar', encodeURIComponent(url.searchParams.get('avatar') ?? 'panda'));
       headers.set('x-room-code', code);
       return stub.fetch(new Request(`https://room/ws?${url.searchParams.toString()}`, { headers }));
     }

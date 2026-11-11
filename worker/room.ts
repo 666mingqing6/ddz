@@ -74,7 +74,7 @@ interface Attachment {
 }
 
 const BOT_NAMES = ['小美', '阿福', '老K', '豆豆', '阿呆', '花姐', '大龙', '小七'];
-const BOT_AVATARS = ['🐯', '🐼', '🦊', '🐵', '🐶', '🐷', '🐸', '🐰'];
+const BOT_AVATARS = ['tiger', 'panda', 'fox', 'dog', 'pig', 'frog', 'rabbit', 'bear'];
 
 function newSeat(): SeatData {
   return {
@@ -147,7 +147,7 @@ export class GameRoom {
         await this.load();
         const uid = request.headers.get('x-user-id') ?? '';
         const name = clean(safeDecode(request.headers.get('x-user-name'), '房主'), 12);
-        const avatar = clean(safeDecode(request.headers.get('x-user-avatar'), '🐯'), 4);
+        const avatar = clean(safeDecode(request.headers.get('x-user-avatar'), 'panda'), 12);
         const code = request.headers.get('x-room-code') ?? url.searchParams.get('room') ?? 'ROOM';
         if (!this.room) {
           const players = Number(url.searchParams.get('players') ?? 3);
@@ -193,7 +193,7 @@ export class GameRoom {
     await this.load();
     const uid = request.headers.get('x-user-id') ?? '';
     const name = clean(safeDecode(request.headers.get('x-user-name'), '玩家'), 12);
-    const avatar = clean(safeDecode(request.headers.get('x-user-avatar'), '🐯'), 4);
+    const avatar = clean(safeDecode(request.headers.get('x-user-avatar'), 'panda'), 12);
     if (!uid) return new Response('unauthorized', { status: 401 });
 
     if (!this.room) {
